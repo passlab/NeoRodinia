@@ -1,4 +1,5 @@
 /*
+ * Level 2: Optimized Parallel Execution with Dynamic Scheduling (P2)
  * This kernel includes a `schedule(dynamic, 64)` clause. This clause specifies that the loop iterations should be dynamically scheduled with a chunk size of 64 iterations.
  * Using dynamic scheduling can improve load balancing, especially if the work per iteration varies significantly.
  * It allows the OpenMP runtime to distribute chunks of iterations dynamically among the available threads, potentially reducing idle time and improving overall parallel efficiency.
@@ -7,6 +8,8 @@
  * The user will specify which operation they want to perform and only call one of them.
  */
 #include "b+tree.h"
+#include <omp.h>
+
 
 void kernel_k(record *records, knode *knodes, long knodes_elem, int order, long maxheight, int count, long *currKnode, long *offset, int *keys, record *ans, int threadsPerBlock, long records_elem, long records_mem, long knodes_mem) {
 

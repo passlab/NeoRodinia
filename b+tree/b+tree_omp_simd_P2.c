@@ -1,6 +1,7 @@
 /*
- * Level 1: Basic Parallel Execution (P1)
- * For both kernels (kernel_k and kernel_j), we can parallelize the outermost loop over bid, which processes multiple queries. This ensures that each query is handled in parallel.
+ * Level 2: SIMD with Memory Alignment (P2)
+ * This version includes memory alignment to optimize memory access patterns, ensuring data is aligned properly for SIMD operations.
+ * Description: Adds aligned(knodes, keys, records: 32) to optimize memory access and ensure efficient SIMD execution by aligning memory for better performance.
  */
 #include "b+tree.h"
 #include <omp.h>
@@ -9,6 +10,7 @@ void kernel_k(record *records, knode *knodes, long knodes_elem, int order, long 
     #pragma omp parallel for
     for (int bid = 0; bid < count; bid++) {
         for (int i = 0; i < maxheight; i++) {
+            #pragma omp simd aligned(knodes, keys: 32)
             for (int thid = 0; thid < threadsPerBlock; thid++) {
                 if ((knodes[currKnode[bid]].keys[thid] <= keys[bid]) && (knodes[currKnode[bid]].keys[thid + 1] > keys[bid])) {
                     if (knodes[offset[bid]].indices[thid] < knodes_elem) {
@@ -18,6 +20,7 @@ void kernel_k(record *records, knode *knodes, long knodes_elem, int order, long 
             }
             currKnode[bid] = offset[bid];
         }
+        #pragma omp simd aligned(records: 32)
         for (int thid = 0; thid < threadsPerBlock; thid++) {
             if (knodes[currKnode[bid]].keys[thid] == keys[bid]) {
                 ans[bid].value = records[knodes[currKnode[bid]].indices[thid]].value;
@@ -30,6 +33,7 @@ void kernel_j(knode *knodes, long knodes_elem, long knodes_mem, int order, long 
     #pragma omp parallel for
     for (int bid = 0; bid < count; bid++) {
         for (int i = 0; i < maxheight; i++) {
+            #pragma omp simd aligned(knodes, start, end: 32)
             for (int thid = 0; thid < threadsPerBlock; thid++) {
                 if ((knodes[currKnode[bid]].keys[thid] <= start[bid]) && (knodes[currKnode[bid]].keys[thid + 1] > start[bid])) {
                     if (knodes[currKnode[bid]].indices[thid] < knodes_elem) {
@@ -45,11 +49,13 @@ void kernel_j(knode *knodes, long knodes_elem, long knodes_mem, int order, long 
             currKnode[bid] = offset[bid];
             lastKnode[bid] = offset_2[bid];
         }
+        #pragma omp simd aligned(knodes: 32)
         for (int thid = 0; thid < threadsPerBlock; thid++) {
             if (knodes[currKnode[bid]].keys[thid] == start[bid]) {
                 recstart[bid] = knodes[currKnode[bid]].indices[thid];
             }
         }
+        #pragma omp simd aligned(knodes: 32)
         for (int thid = 0; thid < threadsPerBlock; thid++) {
             if (knodes[lastKnode[bid]].keys[thid] == end[bid]) {
                 reclength[bid] = knodes[lastKnode[bid]].indices[thid] - recstart[bid] + 1;

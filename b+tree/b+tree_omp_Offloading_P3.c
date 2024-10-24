@@ -1,11 +1,12 @@
 /*
  * Baed on P2, P3 implements num_teams and num_threads clauses.
- * The `num_teams(NUM_TEAMS)` and `num_threads(TEAM_SIZE)` clauses specify the number of teams and the number of threads per team, respectively.
+ * The `num_teams(count/TEAM_SIZE)` and `num_threads(TEAM_SIZE)` clauses specify the number of teams and the number of threads per team, respectively, dynamically adjust the number of teams and threads based on the size of the input matrices, achieving one element per thread.
  * These parameters allow fine-grained control over the parallel execution, optimizing resource utilization.
  * kernel_k is for option 'k' to find the Kth element in the B+ tree,
  * kernel_j is for option 'j' to find a range of elements in the B+ tree.
  * The user will specify which operation they want to perform and only call one of them.
  */
+
 #include "b+tree.h"
 
 void kernel_k(record *records, knode *knodes, long knodes_elem, int order, long maxheight, int count, long *currKnode, long *offset, int *keys, record *ans, int threadsPerBlock, long records_elem, long records_mem, long knodes_mem) {
@@ -13,9 +14,10 @@ void kernel_k(record *records, knode *knodes, long knodes_elem, int order, long 
     int thid;
     int bid;
     int i;
-    // process number of queries
+    // process number of querries
 
-    #pragma omp target teams distribute parallel for num_teams(NUM_TEAMS) num_threads(TEAM_SIZE) map(to : currKnode [0:count], offset [0:count], records [0:records_elem], knodes [0:knodes_elem], keys [0:count]) map(tofrom : ans [0:count])
+    #pragma omp target teams distribute parallel for num_teams(count/TEAM_SIZE) num_threads(TEAM_SIZE) map(to : currKnode [0:count], offset [0:count], records [0:records_elem], knodes [0:knodes_elem], keys [0:count]) map(tofrom : ans [0:count])
+
     for (bid = 0; bid < count; bid++) {
         // process levels of the tree
         for (i = 0; i < maxheight; i++) {
@@ -49,7 +51,8 @@ void kernel_j(knode *knodes, long knodes_elem, long knodes_mem, int order, long 
     int i;
     int thid;
     int bid;
-    #pragma omp target teams distribute parallel for num_teams(NUM_TEAMS) num_threads(TEAM_SIZE) private(i, thid) map(to : currKnode [0:count], offset [0:count], start [0:count], end [0:count], lastKnode [0:count], offset_2 [0:count]) map(tofrom : recstart [0:count], reclength [0:count]) map(to : knodes [0:knodes_elem], threadsPerBlock)
+    #pragma omp target teams distribute parallel for num_teams(count/TEAM_SIZE) num_threads(TEAM_SIZE) private(i, thid) map(to : currKnode [0:count], offset [0:count], start [0:count], end [0:count], lastKnode [0:count], offset_2 [0:count]) map(tofrom : recstart [0:count], reclength [0:count]) map(to : knodes [0:knodes_elem], threadsPerBlock)
+
     // process number of queries
     for (bid = 0; bid < count; bid++) {
         // process levels of the tree
@@ -93,4 +96,3 @@ void kernel_j(knode *knodes, long knodes_elem, long knodes_mem, int order, long 
         }
     }
 }
-
