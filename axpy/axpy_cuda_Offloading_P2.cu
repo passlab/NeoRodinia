@@ -19,7 +19,7 @@ void axpy_kernel(int N, REAL* Y, REAL* X, REAL a) {
     cudaMemcpy(d_x, X, N*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_y, Y, N*sizeof(REAL), cudaMemcpyHostToDevice);
 
-    axpy_cudakernel_P2<<<(N+255)/256, 256>>>(d_x, d_y, N, a);
+    axpy_cudakernel_P2<<<(N+255)/256, 256>>>(N, d_x, d_y, a);
     cudaDeviceSynchronize();
 
     cudaMemcpy(Y, d_y, N*sizeof(REAL), cudaMemcpyDeviceToHost);

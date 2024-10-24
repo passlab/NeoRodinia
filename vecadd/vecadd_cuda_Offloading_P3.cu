@@ -2,9 +2,9 @@
  * This kernel uses a global memory approach, where each thread is responsible for computing a single element in the resulting vector. 
  *
  */
-#include "axpy.h"
+#include "vecadd.h"
 
-__global__ void axpy_cudakernel_P3(int N, REAL *Y, const REAL *X, REAL a) {
+__global__ void vecadd_cudakernel_P3(int N, REAL *Y, const REAL *X) {
     __shared__ REAL shared_X[256];
     __shared__ REAL shared_Y[256];
     
@@ -16,14 +16,14 @@ __global__ void axpy_cudakernel_P3(int N, REAL *Y, const REAL *X, REAL a) {
 
         #pragma unroll
         for (int j = 0; j < blockDim.x; j++) {
-            shared_Y[j] += a * shared_X[j];  // Perform AXPY in shared memory
+            shared_Y[j] += shared_X[j];  // Perform AXPY in shared memory
         }
 
         Y[i] = shared_Y[threadIdx.x];  // Store the result back to global memory
     }
 }
 
-void axpy_kernel(int N, REAL* Y, REAL* X, REAL a) {
+void vecadd_kernel(int N, REAL* Y, REAL* X) {
     REAL *d_x, *d_y;
     cudaMalloc(&d_x, N*sizeof(REAL));
     cudaMalloc(&d_y, N*sizeof(REAL));
@@ -31,7 +31,7 @@ void axpy_kernel(int N, REAL* Y, REAL* X, REAL a) {
     cudaMemcpy(d_x, X, N*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_y, Y, N*sizeof(REAL), cudaMemcpyHostToDevice);
 
-    axpy_cudakernel_P3<<<(N+255)/256, 256>>>(N, d_x, d_y, a);
+    vecadd_cudakernel_P3<<<(N+255)/256, 256>>>(N, d_x, d_y);
     cudaDeviceSynchronize();
 
     cudaMemcpy(Y, d_y, N*sizeof(REAL), cudaMemcpyDeviceToHost);
