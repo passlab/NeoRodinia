@@ -1,6 +1,6 @@
 /*
- * `#pragma omp parallel for reduction(+:result)`: This directive parallelizes the loop using OpenMP, distributing the loop iterations across multiple threads for concurrent execution.
- * The `reduction(+:result)` clause ensures that each thread maintains its private copy of `result` and aggregates them together after the loop execution.
+ * Level 1: Basic Parallel Execution (P1)
+ * Description: Uses parallel for and the reduction clause to parallelize the summation, allowing each thread to calculate a partial sum, which is then reduced into a final result.
  *
  */
 
@@ -8,10 +8,9 @@
 #include <omp.h>
 
 REAL sum_kernel(int N, REAL X[]) {
-    int i;
     REAL result = 0.0;
-    #pragma omp parallel for reduction(+:result)
-    for (i = 0; i < N; ++i) {
+    #pragma omp parallel for reduction(+: result)
+    for (int i = 0; i < N; ++i) {
         result += X[i];
     }
     return result;

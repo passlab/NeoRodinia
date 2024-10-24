@@ -1,7 +1,7 @@
 /*
  * Baed on P2, P3 implements collapse, num_teams and num_threads clauses.
  * The `collapse(2)` clause combines the nested loops into a single loop, effectively parallelizing both the `i` and `j` iterations. This can improve parallelization efficiency by reducing loop overhead.
- * The `num_teams(NUM_TEAMS)` and `num_threads(TEAM_SIZE)` clauses specify the number of teams and the number of threads per team, respectively.
+ * The `num_teams(N/TEAM_SIZE)` and `num_threads(TEAM_SIZE)` clauses specify the number of teams and the number of threads per team, respectively, dynamically adjust the number of teams and threads based on the size of the input matrices, achieving one element per thread.
  * These parameters allow fine-grained control over the parallel execution, optimizing resource utilization.
  *
  */
@@ -13,7 +13,7 @@ void stencil_kernel(const REAL* src, REAL* dst, int width, int height, const flo
     int N = width*height;
     int i, j;
 
-    #pragma omp target teams distribute parallel for map(to: src[0:N], filter[0:flt_size]) map(from: dst[0:N]) collapse(2) num_teams(NUM_TEAMS) num_threads(TEAM_SIZE)
+    #pragma omp target teams distribute parallel for map(to: src[0:N], filter[0:flt_size]) map(from: dst[0:N]) collapse(2) num_teams(N/TEAM_SIZE) num_threads(TEAM_SIZE)
     for (i = 0; i < height; i++) {
         for (j = 0; j < width; j++) {
             REAL sum = 0;

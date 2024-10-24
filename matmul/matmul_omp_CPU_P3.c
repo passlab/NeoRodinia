@@ -1,5 +1,6 @@
 /*
- * Compared to P2, P3 implements the `collapse(2)` clause, combining the nested loops into a single loop, effectively parallelizing both the `i` and `j` iterations. This can improve parallelization efficiency by reducing loop overhead.
+ * In P3, the `simd` directive is used within the innermost loop to indicate that the loop can be vectorized using SIMD (Single Instruction, Multiple Data) instructions for further optimization.
+ * The `reduction(+:temp)` clause ensures proper synchronization and accumulation of the temporary variable `temp`, which holds the partial sum of the matrix multiplication operation for each element of matrix `C`.
  *
  */
 #include "matmul.h"
@@ -12,6 +13,7 @@ void matmul_kernel(int N, REAL *A, REAL *B, REAL *C) {
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             temp = 0;
+            #pragma omp simd reduction(+:temp)
             for (k = 0; k < N; k++) {
                 temp += (A[i * N + k] * B[k * N + j]);
             }
@@ -19,3 +21,4 @@ void matmul_kernel(int N, REAL *A, REAL *B, REAL *C) {
         }
     }
 }
+

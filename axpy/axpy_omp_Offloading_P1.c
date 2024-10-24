@@ -6,10 +6,10 @@
 #include "axpy.h"
 #include <omp.h>
 
-void axpy_kernel(int N, REAL* Y, REAL* X, REAL a) {
-    int i;
-    #pragma omp target parallel for map(to: N, X[0:N]) map(tofrom: Y[0:N])
-    for (i = 0; i < N; ++i) {
-        Y[i] += a * X[i];
+void axpy_kernel(int N, REAL *Y, const REAL *X, REAL a) {
+    #pragma omp target map(to: X[0:N]) map(tofrom: Y[0:N])
+    {
+        for (int i = 0; i < N; ++i)
+            Y[i] += a * X[i];  // AXPY operation on the GPU
     }
 }

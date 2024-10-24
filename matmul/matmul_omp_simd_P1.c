@@ -1,6 +1,6 @@
 /*
- * Level 2: Optimized Parallel Execution (P2)
- * Description: Collapses the i and j loops to improve the granularity of parallelism, distributing more work among threads.
+ * Level 1: Basic SIMD Vectorization (P1)
+ * Description: The innermost loop (for k) is vectorized using the simd directive to enable automatic vectorization for basic SIMD processing.
  *
  */
 #include "matmul.h"
@@ -8,11 +8,10 @@
 
 void matmul_kernel(int N, REAL *A, REAL *B, REAL *C) {
     int i, j, k;
-    REAL temp;
-    #pragma omp parallel for collapse(2) private(k, temp)
+    #pragma omp parallel for simd private(j, k)
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
-            temp = 0;
+            REAL temp = 0;
             for (k = 0; k < N; k++) {
                 temp += A[i * N + k] * B[k * N + j];
             }
