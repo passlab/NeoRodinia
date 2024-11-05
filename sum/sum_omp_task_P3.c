@@ -1,35 +1,42 @@
 /*
- * Level 3: Recursive Tasking (P3)
- * Description: Implements recursive tasking, splitting the summation into smaller tasks until a base case is reached, then combining the results from each task.
- *
+ * Level 3: Recursive Task Creation (P3)
+ * Description: Implements recursive task creation for summing the array in segments, creating a binary reduction tree for efficient summation.
  */
-
 #include "sum.h"
 #include <omp.h>
 
-void sum_task(int start, int end, REAL X[], REAL* result) {
-    if (end - start <= 100) {  // Base case
-        for (int i = start; i < end; i++) {
-            *result += X[i];
+REAL sum_recursive(int start, int end, REAL X[]) {
+    if (end - start < 1024) {  // Base case: compute sum directly for small range
+        REAL partial_sum = 0.0;
+        for (int i = start; i < end; ++i) {
+            partial_sum += X[i];
         }
+        return partial_sum;
     } else {
-        REAL left_result = 0.0, right_result = 0.0;
         int mid = (start + end) / 2;
-        #pragma omp task shared(left_result)
-        sum_task(start, mid, X, &left_result);
-        #pragma omp task shared(right_result)
-        sum_task(mid, end, X, &right_result);
+        REAL left_sum, right_sum;
+        
+        #pragma omp task shared(left_sum)
+        left_sum = sum_recursive(start, mid, X);
+        
+        #pragma omp task shared(right_sum)
+        right_sum = sum_recursive(mid, end, X);
+        
         #pragma omp taskwait
-        *result = left_result + right_result;
+        return left_sum + right_sum;
     }
 }
 
 REAL sum_kernel(int N, REAL X[]) {
     REAL result = 0.0;
+
     #pragma omp parallel
     {
         #pragma omp single
-        sum_task(0, N, X, &result);
+        {
+            result = sum_recursive(0, N, X);
+        }
     }
+
     return result;
 }

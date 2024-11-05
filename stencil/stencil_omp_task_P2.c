@@ -1,6 +1,6 @@
 /*
- * Level 2: Taskloop (P2)
- * Description: Uses taskloop to distribute the work more efficiently, simplifying task management and providing dynamic load balancing.
+ * Level 2: Taskloop with Specified Grain Size (P2)
+ * Description: Introduces a grainsize clause to control task granularity, allowing the outer loop to process blocks of rows.
  */
 #include "stencil.h"
 #include <omp.h>
@@ -10,7 +10,7 @@ void stencil_kernel(const REAL* src, REAL* dst, int width, int height, const flo
     {
         #pragma omp single
         {
-            #pragma omp taskloop
+            #pragma omp taskloop grainsize(8)  // Specify grainsize for balanced workload
             for (int i = 0; i < height; i++) {
                 for (int j = 0; j < width; j++) {
                     REAL sum = 0;

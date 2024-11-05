@@ -1,7 +1,6 @@
 /*
- * Level 2: Taskloop Parallelization (P2)
- * Description: Uses taskloop to distribute the work across threads with a collapsed loop for better task management and dynamic load balancing.
- *
+ * Level 2: Taskloop with Specified Grain Size (P2)
+ * Description: Introduces a grainsize clause for the taskloop, allowing control over task granularity by grouping rows into blocks to improve workload balance.
  */
 #include "matmul.h"
 #include <omp.h>
@@ -11,10 +10,10 @@ void matmul_kernel(int N, REAL *A, REAL *B, REAL *C) {
     {
         #pragma omp single
         {
-            #pragma omp taskloop collapse(2)
+            #pragma omp taskloop grainsize(4)  // Specify grainsize for block of rows to balance task distribution
             for (int i = 0; i < N; i++) {
                 for (int j = 0; j < N; j++) {
-                    REAL temp = 0;
+                    REAL temp = 0.0;
                     for (int k = 0; k < N; k++) {
                         temp += A[i * N + k] * B[k * N + j];
                     }

@@ -1,7 +1,7 @@
 /*
- * Level 2: Advanced Taskloop with Dependencies (P2)
- * Description: Adds depend clauses to manage task dependencies and improve scheduling in more complex cases.
- *
+ * Level 2: Taskloop with Specified Grain Size (P2)
+ * Description: Introduces a grainsize clause for task granularity control, optimizing for workload balance.
+ * Dependencies can be added if there is potential for dependency between tasks.
  */
 #include "axpy.h"
 #include <omp.h>
@@ -11,9 +11,10 @@ void axpy_kernel(int N, REAL *Y, REAL *X, REAL a) {
     {
         #pragma omp single
         {
-            #pragma omp taskloop depend(inout: Y[0:N])
-            for (int i = 0; i < N; ++i)
+            #pragma omp taskloop grainsize(128)  // Specify grainsize for balanced task distribution
+            for (int i = 0; i < N; ++i) {
                 Y[i] += a * X[i];
+            }
         }
     }
 }

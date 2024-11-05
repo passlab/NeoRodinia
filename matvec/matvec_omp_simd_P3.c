@@ -8,9 +8,9 @@
 
 void matvec_kernel(int N, REAL *A, REAL *B, REAL *C) {
     int i, j;
-    #pragma omp parallel for simd simdlen(8) private(j) aligned(A, B, C: 32)
     for (i = 0; i < N; i++) {
         REAL temp = 0.0;
+        #pragma omp parallel for simd simdlen(8) private(j) aligned(A, B, C: 32)
         for (j = 0; j < N; j++) {
             temp += A[i * N + j] * B[j];
         }
