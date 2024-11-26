@@ -1,4 +1,10 @@
+/*
+ * Level 3: Recursive Task Creation
+ * This level uses recursive task creation for dynamic and hierarchical workloads. Large tasks are split into smaller tasks recursively, which is suitable for irregular or highly complex computations.
+ *
+ */
 #include "sc.h"
+// #include "sc_kernel.h"
 #include "utils.h"
 
 // instrumentation code
@@ -46,12 +52,49 @@ float d_dist(int p1, int p2, int dim, float *coord) {
 /* z is the facility cost, x is the number of this point in the array
    points */
 
+// Recursive Task Implementation
+void recursive_task_creation(int start, int end, Points *points, long x, int dim, double &cost) {
+    const int threshold = 1000; // Define a threshold for splitting
+
+    // Base case: process sequentially when range is small
+    if (end - start <= threshold) {
+        for (int i = start; i < end; i++) {
+            float x_cost =
+                dist(points->p[i], points->p[x], dim) * points->p[i].weight;
+            float current_cost = points->p[i].cost;
+
+            if (x_cost < current_cost) {
+                // Save cost by switching membership
+                switch_membership[i] = 1;
+                cost += x_cost - current_cost;
+            } else {
+                // Update the savings of the current center
+                int assign = points->p[i].assign;
+                #pragma omp atomic
+                lower[center_table[assign]] += current_cost - x_cost;
+            }
+        }
+        return;
+    }
+
+    // Recursive case: split the range and create tasks
+    int mid = start + (end - start) / 2;
+
+    #pragma omp task shared(cost)
+    recursive_task_creation(start, mid, points, x, dim, cost);
+
+    #pragma omp task shared(cost)
+    recursive_task_creation(mid, end, points, x, dim, cost);
+
+    #pragma omp taskwait // Wait for tasks to complete
+}
+
 double pgain_kernel(long x, Points *points, double z, long int *numcenters,
                     int pid) {
-
-    const char *func_name = __func__;
-    nr_omp_set_num_threads(func_name);
-
+    //  printf("pgain pthread %d begin\n",pid);
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
 #ifdef PROFILE
     double t0 = read_timer();
 #endif
@@ -63,6 +106,7 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
     if (pid == nproc - 1)
         k2 = points->num;
 
+    int i;
     int number_of_centers_to_close = 0;
 
     static double *work_mem;
@@ -86,6 +130,9 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
         gl_cost_of_opening_x = 0;
         gl_number_of_centers_to_close = 0;
     }
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
     /*For each center, we have a *lower* field that indicates
       how much we will save by closing the center.
       Each thread has its own copy of the *lower* fields as an array.
@@ -100,6 +147,10 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
     }
     work_mem[pid * stride] = count;
 
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
+
     if (pid == 0) {
         int accum = 0;
         for (int p = 0; p < nproc; p++) {
@@ -108,6 +159,10 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
             accum += tmp;
         }
     }
+
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
 
     for (int i = k1; i < k2; i++) {
         if (is_center[i]) {
@@ -121,6 +176,9 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
     if (pid == 0)
         memset(work_mem + nproc * stride, 0, stride * sizeof(double));
 
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
 #ifdef PROFILE
     double t1 = read_timer();
     if (pid == 0)
@@ -131,50 +189,18 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
     // global *lower* fields
     double *gl_lower = &work_mem[nproc * stride];
 
-    // OpenMP parallelization
-    long num = points->num;
-    int dim = points->dim;
-    if (isCoordChanged || iter_index == 0) {
-        for (int i = k1; i < k2; i++) {
-            for (int j = 0; j < dim; j++) {
-                coord_d[dim * i + j] = points->p[i].coord[j];
-            }
-        }
-#pragma omp target update to(coord_d[0 : num * dim])
-    }
-    Point *d_points = points->p;
-#pragma omp target teams distribute parallel for num_teams(NUM_TEAMS)          \
-    num_threads(TEAM_SIZE)                                                     \
-    map(to : d_points[0 : num], center_table[0 : num], coord_d[0 : num * dim]) \
-    map(tofrom : switch_membership[0 : num], lower[0 : stride * (nproc + 1)])  \
-    reduction(+ : cost_of_opening_x)
-    for (int i = k1; i < k2; i++) {
 
-        float x_cost = d_dist(i, x, dim, coord_d);
-        float current_cost = d_points[i].cost;
-
-        if (x_cost < current_cost) {
-
-            // point i would save cost just by switching to x
-            // (note that i cannot be a median,
-            // or else dist(p[i], p[x]) would be 0)
-            switch_membership[i] = 1;
-            cost_of_opening_x += x_cost - current_cost;
-        } else {
-
-            // cost of assigning i to x is at least current assignment cost of i
-
-            // consider the savings that i's **current** median would realize
-            // if we reassigned that median and all its members to x;
-            // note we've already accounted for the fact that the median
-            // would save z by closing; now we have to subtract from the savings
-            // the extra cost of reassigning that median and its members
-            int assign = d_points[i].assign;
-#pragma omp atomic
-            lower[center_table[assign]] += current_cost - x_cost;
+    #pragma omp parallel
+    {
+        #pragma omp single // Single thread initiates the recursive task creation
+        {
+            recursive_task_creation(k1, k2, points, x, points->dim, cost_of_opening_x);
         }
     }
 
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
 #ifdef PROFILE
     double t2 = read_timer();
     if (pid == 0) {
@@ -192,6 +218,7 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
                 low += work_mem[center_table[i] + p * stride];
             }
             gl_lower[center_table[i]] = low;
+            // printf("%d : %f %f\n", i, low, work_mem[center_table[i]+stride]);
             if (low > 0) {
                 // i is a median, and
                 // if we were to open x (which we still may not) we'd close i
@@ -202,10 +229,18 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
             }
         }
     }
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
 
     // use the rest of working memory to store the following
     work_mem[pid * stride + K] = number_of_centers_to_close;
     work_mem[pid * stride + K + 1] = cost_of_opening_x;
+
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
+    //  printf("thread %d cost complete\n",pid);
 
     if (pid == 0) {
         gl_cost_of_opening_x = z;
@@ -215,12 +250,15 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
             gl_cost_of_opening_x += work_mem[p * stride + K + 1];
         }
     }
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
     // Now, check whether opening x would save cost; if so, do it, and
     // otherwise do nothing
 
     if (gl_cost_of_opening_x < 0) {
         //  we'd save money by opening x; we'll do it
-#pragma omp parallel for num_threads(4)
+#pragma omp parallel for
         for (int i = k1; i < k2; i++) {
             bool close_center = gl_lower[center_table[points->p[i].assign]] > 0;
             if (switch_membership[i] || close_center) {
@@ -241,6 +279,7 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
         if (x >= k1 && x < k2) {
             is_center[x] = true;
         }
+        //    pthread_barrier_wait(barrier);
 
         if (pid == 0) {
             *numcenters = *numcenters + 1 - gl_number_of_centers_to_close;
@@ -249,8 +288,15 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
         if (pid == 0)
             gl_cost_of_opening_x = 0; // the value we'll return
     }
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
+#endif
     if (pid == 0) {
         free(work_mem);
+        //    free(is_center);
+        //    free(switch_membership);
+        //    free(proc_cost_of_opening_x);
+        //    free(proc_number_of_centers_to_close);
     }
 
 #ifdef PROFILE
@@ -258,15 +304,7 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
     if (pid == 0)
         time_gain += t3 - t0;
 #endif
-    iter_index++;
-
-    /*
-    if (num_threads_string)
-        setenv("OMP_NUM_THREADS", num_threads_string, 1);
-    else
-        unsetenv("OMP_NUM_THREADS");
-    */
-
+    // printf("cost=%f\n", -gl_cost_of_opening_x);
     return -gl_cost_of_opening_x;
 }
 
@@ -276,8 +314,7 @@ double streamCluster_wrapper(PStream *stream, long kmin, long kmax, int dim,
     coord_d = (float *)malloc(chunksize * dim * sizeof(float));
 
     double t1 = read_timer();
-#pragma omp target data map(to : coord_d[0 : chunksize * dim])
-    { streamCluster(stream, kmin, kmax, dim, chunksize, centersize, outfile); }
+    streamCluster(stream, kmin, kmax, dim, chunksize, centersize, outfile);
     double t2 = read_timer();
 
     free(coord_d);

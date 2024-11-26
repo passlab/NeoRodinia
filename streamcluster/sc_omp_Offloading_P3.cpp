@@ -1,3 +1,8 @@
+/*
+ * Level 3: Optimized Teams and Threads with Explicit Control/Advanced Optimization with Asynchronous Execution
+ * In this level, the number of teams and threads per team are explicitly controlled using num_teams and num_threads clauses. This provides greater flexibility in allocating GPU resources based on the workload size and hardware capabilities. The mapping and reduction operations are optimized to reduce contention and improve performance.
+ * This level incorporates advanced GPU optimization techniques, such as asynchronous execution and #pragma omp target data for persistent data mapping. By overlapping computation and data transfers, this approach minimizes memory bottlenecks and maximizes GPU utilization. Additionally, omp atomic is used to ensure thread safety in shared memory operations.
+ */
 #include "sc.h"
 #include "utils.h"
 
@@ -48,6 +53,10 @@ float d_dist(int p1, int p2, int dim, float *coord) {
 
 double pgain_kernel(long x, Points *points, double z, long int *numcenters,
                     int pid) {
+
+    const char *func_name = __func__;
+    nr_omp_set_num_threads(func_name);
+
 #ifdef PROFILE
     double t0 = read_timer();
 #endif
@@ -136,6 +145,7 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
                 coord_d[dim * i + j] = points->p[i].coord[j];
             }
         }
+#pragma omp target update to(coord_d[0 : num * dim])
     }
     Point *d_points = points->p;
 #pragma omp target teams distribute parallel for num_teams(NUM_TEAMS)          \
@@ -144,6 +154,7 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
     map(tofrom : switch_membership[0 : num], lower[0 : stride * (nproc + 1)])  \
     reduction(+ : cost_of_opening_x)
     for (int i = k1; i < k2; i++) {
+
         float x_cost = d_dist(i, x, dim, coord_d);
         float current_cost = d_points[i].cost;
 
@@ -253,6 +264,14 @@ double pgain_kernel(long x, Points *points, double z, long int *numcenters,
         time_gain += t3 - t0;
 #endif
     iter_index++;
+
+    /*
+    if (num_threads_string)
+        setenv("OMP_NUM_THREADS", num_threads_string, 1);
+    else
+        unsetenv("OMP_NUM_THREADS");
+    */
+
     return -gl_cost_of_opening_x;
 }
 
@@ -262,7 +281,8 @@ double streamCluster_wrapper(PStream *stream, long kmin, long kmax, int dim,
     coord_d = (float *)malloc(chunksize * dim * sizeof(float));
 
     double t1 = read_timer();
-    streamCluster(stream, kmin, kmax, dim, chunksize, centersize, outfile);
+#pragma omp target data map(to : coord_d[0 : chunksize * dim])
+    { streamCluster(stream, kmin, kmax, dim, chunksize, centersize, outfile); }
     double t2 = read_timer();
 
     free(coord_d);

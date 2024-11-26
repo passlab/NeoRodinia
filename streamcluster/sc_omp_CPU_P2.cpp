@@ -1,3 +1,11 @@
+/*
+ * Level 2: Dynamic Scheduling with Optimized Memory Access
+ * This level builds upon Level 1 by incorporating dynamic scheduling and optimized memory usage.
+ * Dynamic scheduling (schedule(dynamic)) is used in #pragma omp parallel for to balance the workload dynamically among threads.
+ * Efficient memory access patterns are implemented by ensuring contiguous memory blocks (coord_d) are used for parallel computations.
+ * Reductions are retained for cost computations, while atomic operations handle shared memory updates to avoid race conditions.
+ *
+ */
 #include "sc.h"
 // #include "sc_kernel.h"
 #include "utils.h"

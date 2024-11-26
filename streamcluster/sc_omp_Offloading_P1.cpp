@@ -1,3 +1,8 @@
+/*
+ * Level 1: Basic GPU Offloading
+ * In this initial implementation, OpenMP offloading is used to run the pgain_kernel function on the GPU. The computation is parallelized with #pragma omp target parallel for, and the required data (points, center_table, coord_d, etc.) is mapped to and from the GPU memory. This level relies on the default behavior of OpenMP target directives to manage threads and teams.
+ *
+ */
 #include "sc.h"
 #include "utils.h"
 

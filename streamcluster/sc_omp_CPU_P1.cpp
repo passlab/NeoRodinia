@@ -1,3 +1,11 @@
+/*
+ * Level 1: Basic OpenMP Parallelization
+ * In this level, OpenMP parallelization is introduced using #pragma omp parallel for to distribute the workload across threads.
+ * Loops that calculate the cost of opening a facility (pgain_kernel) are parallelized using #pragma omp parallel for.
+ * Reduction operations are used to accumulate the total cost of opening a facility in a thread-safe manner.
+ * Atomic operations ensure that concurrent updates to shared memory regions (e.g., lower fields) are handled safely.
+ *
+ */
 #include "sc.h"
 // #include "sc_kernel.h"
 #include "utils.h"
