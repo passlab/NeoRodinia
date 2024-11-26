@@ -18,6 +18,11 @@ hotspot_omp_CPU_P2: utils.o hotspot_omp_CPU_P2.cpp main.cpp hotspot_common.cpp
 
 hotspot_omp_CPU_P3: utils.o hotspot_omp_CPU_P3.cpp main.cpp hotspot_common.cpp
 	$(CXX) $(CFLAGS) $(OMP_FLAG) $^ -o $@_$(CXX)_$(OPT_LEVEL)_exec $(LDFLAGS)
+hotspot_omp_task_P1: utils.o hotspot_omp_CPU_P3.cpp main.cpp hotspot_common.cpp
+	$(CXX) $(CFLAGS) $(OMP_FLAG) $^ -o $@_$(CXX)_$(OPT_LEVEL)_exec $(LDFLAGS)
+	
+hotspot_omp_task_P2: utils.o hotspot_omp_CPU_P3.cpp main.cpp hotspot_common.cpp
+	$(CXX) $(CFLAGS) $(OMP_FLAG) $^ -o $@_$(CXX)_$(OPT_LEVEL)_exec $(LDFLAGS)
 	
 hotspot_omp_Offloading_P1: utils.o hotspot_omp_Offloading_P1.cpp main.cpp hotspot_common.cpp
 	$(CXX) $(CFLAGS) $(OMP_FLAG) $(OFFLOADING_FLAG) $^ -o $@_$(CXX)_$(OPT_LEVEL)_exec $(LDFLAGS)

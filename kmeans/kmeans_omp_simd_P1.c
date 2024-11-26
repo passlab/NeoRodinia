@@ -1,6 +1,8 @@
 /*
- * Level 1: Basic Parallelization
- * This version introduces basic parallelism using #pragma omp parallel for. The nearest cluster center calculation and the updates to cluster membership and cluster centers are parallelized. However, shared memory and reduction mechanisms are employed to manage data consistency during updates.
+ * Level 1: Basic SIMD Implementation
+ * This version uses #pragma omp simd to vectorize the loop computing the squared Euclidean distance.
+ * The reduction(+:ans) ensures correct summation across SIMD lanes.
+ * This implementation is simple and serves as the starting point for SIMD optimization.
  *
  */
 #include "kmeans.h"
@@ -40,12 +42,12 @@ int find_nearest_point(float *pt, int nfeatures, float **pts, int npts) {
 
 // multi-dimensional spatial Euclid distance square
 float euclid_dist_2(float *pt1, float *pt2, int numdims) {
-    int i;
-    float ans=0.0;
-    for (i=0; i<numdims; i++)
-        ans += (pt1[i]-pt2[i]) * (pt1[i]-pt2[i]);
-
-    return(ans);
+    float ans = 0.0;
+    #pragma omp simd reduction(+:ans)
+    for (int i = 0; i < numdims; i++) {
+        ans += (pt1[i] - pt2[i]) * (pt1[i] - pt2[i]);
+    }
+    return ans;
 }
 
 float** kmeans_clustering(float** feature, int nfeatures, int npoints, int nclusters, float threshold, int* membership) {
@@ -82,7 +84,6 @@ float** kmeans_clustering(float** feature, int nfeatures, int npoints, int nclus
 
     do {
         delta = 0.0;
-        #pragma omp parallel for private(i,j,index) firstprivate(npoints,nclusters,nfeatures) shared(feature,clusters,membership) reduction(+:delta)
         for (i = 0; i < npoints; i++) {
             /* find the index of nearest cluster centers */
             index = find_nearest_point(feature[i], nfeatures, clusters, nclusters);

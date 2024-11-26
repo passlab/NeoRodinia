@@ -1,5 +1,6 @@
 /*
- * Serial Version
+ * Level 1: Basic GPU Offloading with #pragma omp target parallel for
+ * This level introduces basic GPU parallelization by offloading the loops in Fan1 and Fan2 to the GPU using the #pragma omp target parallel for directive.
  *
  */
 #include "gaussian.h"

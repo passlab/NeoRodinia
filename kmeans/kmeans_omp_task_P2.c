@@ -1,3 +1,8 @@
+/*
+ * Level 2: Task Parallelism with grainsize Control
+ * Adds finer control over task granularity using the grainsize clause in #pragma omp taskloop. This ensures that tasks are batched into groups of iterations, improving performance by balancing overhead and workload.
+ *
+ */
 #include "kmeans.h"
 
 int cluster(int numObjects, int numAttributes, float **attributes, int nclusters, float threshold, float ***cluster_centres) {
@@ -37,7 +42,6 @@ int find_nearest_point(float *pt, int nfeatures, float **pts, int npts) {
 float euclid_dist_2(float *pt1, float *pt2, int numdims) {
     int i;
     float ans=0.0;
-
     for (i=0; i<numdims; i++)
         ans += (pt1[i]-pt2[i]) * (pt1[i]-pt2[i]);
 
@@ -78,7 +82,7 @@ float** kmeans_clustering(float** feature, int nfeatures, int npoints, int nclus
 
     do {
         delta = 0.0;
-        #pragma omp parallel for private(i,j,index) firstprivate(npoints,nclusters,nfeatures) shared(feature,clusters,membership) reduction(+:delta) schedule(dynamic, 128)
+        #pragma omp taskloop grainsize(128) private(i, j, index) shared(feature, clusters, membership, new_centers_len, new_centers) firstprivate(npoints, nclusters, nfeatures) reduction(+:delta)
         for (i = 0; i < npoints; i++) {
             /* find the index of nearest cluster centers */
             index = find_nearest_point(feature[i], nfeatures, clusters, nclusters);
@@ -97,7 +101,6 @@ float** kmeans_clustering(float** feature, int nfeatures, int npoints, int nclus
 
         /* replace old cluster centers with new_centers */
         for (i = 0; i < nclusters; i++) {
-            #pragma omp simd
             for (j = 0; j < nfeatures; j++) {
                 if (new_centers_len[i] > 0)
                     clusters[i][j] = new_centers[i][j] / new_centers_len[i];

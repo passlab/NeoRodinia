@@ -1,7 +1,8 @@
 /*
- * This kernel includes a `schedule(dynamic, 64)` clause. This clause specifies that the loop iterations should be dynamically scheduled with a chunk size of 64 iterations.
- * Using dynamic scheduling can improve load balancing, especially if the work per iteration varies significantly.
- * It allows the OpenMP runtime to distribute chunks of iterations dynamically among the available threads, potentially reducing idle time and improving overall parallel efficiency.
+ * Level 2: Dynamic Scheduling
+ * Builds on Version 1 but adds dynamic scheduling with a chunk size of 64.
+ * The schedule(dynamic, 64) clause divides the loop into chunks of 64 iterations, which are assigned to threads dynamically as they become available.
+ * Dynamic scheduling is particularly effective for uneven workloads or when the computational cost of iterations varies, improving thread utilization.
  *
  */
 #include "lud.h"

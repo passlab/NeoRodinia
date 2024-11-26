@@ -1,3 +1,8 @@
+/*
+ * Level 2: Enhanced GPU Parallelism with Partial Reductions
+ * This version introduces partial reductions on the GPU to aggregate intermediate results (e.g., sums of cluster centers and membership counts). Each thread group processes a subset of points and performs a partial reduction locally. These partial results are then reduced on the GPU before being copied back to the host.
+ *
+ */
 #include "kmeans.h"
 
 int cluster(int numObjects, int numAttributes, float **attributes, int nclusters, float threshold, float ***cluster_centres) {

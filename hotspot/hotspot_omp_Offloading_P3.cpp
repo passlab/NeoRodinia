@@ -1,77 +1,79 @@
 /*
- * Serial Version
+ * Level 3: Fine-Tuned GPU Resource Utilization with num_teams and num_threads
+ * Optimized for performance by fine-tuning the number of GPU teams and threads for efficient hardware resource utilization.
+ * Combines the num_teams and num_threads clauses with #pragma omp target teams distribute parallel for for explicit control over parallelism.
  *
  */
 #include "hotspot.h"
 
-void single_iteration(FLOAT *result, FLOAT *temp, FLOAT *power, int grid_rows, int col, FLOAT Cap_1, FLOAT Rx_1, FLOAT Ry_1, FLOAT Rz_1, FLOAT step) {
+void single_iteration(FLOAT *result, FLOAT *temp, FLOAT *power, int grid_rows, int grid_cols, FLOAT Cap_1, FLOAT Rx_1, FLOAT Ry_1, FLOAT Rz_1, FLOAT step) {
     FLOAT delta=0;
     int r, c;
     int chunk;
-    int num_chunk = grid_rows*col / (BLOCK_SIZE_R * BLOCK_SIZE_C);
-    int chunks_in_grid_rows = col/BLOCK_SIZE_C;
-    int chunks_in_col = grid_rows/BLOCK_SIZE_R;
+    int num_chunk = grid_rows*grid_cols / (BLOCK_SIZE_R * BLOCK_SIZE_C);
+    int chunks_in_grid_rows = grid_cols/BLOCK_SIZE_C;
+    int chunks_in_grid_cols = grid_rows/BLOCK_SIZE_R;
 
-    #pragma omp target teams distribute parallel for map(tofrom : temp [0:grid_rows * col])  num_teams(NUM_TEAMS) num_threads(TEAM_SIZE)
+    #pragma omp target teams distribute parallel for map(tofrom : temp [0:grid_rows * grid_cols])  num_teams(num_chunk/TEAM_SIZE) num_threads(TEAM_SIZE)
     for ( chunk = 0; chunk < num_chunk; ++chunk ) {
-        int r_start = BLOCK_SIZE_R*(chunk/chunks_in_col);
+        int r_start = BLOCK_SIZE_R*(chunk/chunks_in_grid_cols);
         int c_start = BLOCK_SIZE_C*(chunk%chunks_in_grid_rows);
         int r_end = r_start + BLOCK_SIZE_R > grid_rows ? grid_rows : r_start + BLOCK_SIZE_R;
-        int c_end = c_start + BLOCK_SIZE_C > col ? col : c_start + BLOCK_SIZE_C;
+        int c_end = c_start + BLOCK_SIZE_C > grid_cols ? grid_cols : c_start + BLOCK_SIZE_C;
        
-        if ( r_start == 0 || c_start == 0 || r_end == grid_rows || c_end == col ) {
+        if ( r_start == 0 || c_start == 0 || r_end == grid_rows || c_end == grid_cols ) {
             for ( r = r_start; r < r_start + BLOCK_SIZE_R; ++r ) {
                 for ( c = c_start; c < c_start + BLOCK_SIZE_C; ++c ) {
                     /* Corner 1 */
                     if ( (r == 0) && (c == 0) ) {
                         delta = (Cap_1) * (power[0] +
                             (temp[1] - temp[0]) * Rx_1 +
-                            (temp[col] - temp[0]) * Ry_1 +
+                            (temp[grid_cols] - temp[0]) * Ry_1 +
                             (amb_temp - temp[0]) * Rz_1);
                     }    /* Corner 2 */
-                    else if ((r == 0) && (c == col-1)) {
+                    else if ((r == 0) && (c == grid_cols-1)) {
                         delta = (Cap_1) * (power[c] +
                             (temp[c-1] - temp[c]) * Rx_1 +
-                            (temp[c+col] - temp[c]) * Ry_1 +
+                            (temp[c+grid_cols] - temp[c]) * Ry_1 +
                         (   amb_temp - temp[c]) * Rz_1);
                     }    /* Corner 3 */
-                    else if ((r == grid_rows-1) && (c == col-1)) {
-                        delta = (Cap_1) * (power[r*col+c] +
-                            (temp[r*col+c-1] - temp[r*col+c]) * Rx_1 +
-                            (temp[(r-1)*col+c] - temp[r*col+c]) * Ry_1 +
-                        (   amb_temp - temp[r*col+c]) * Rz_1);
+                    else if ((r == grid_rows-1) && (c == grid_cols-1)) {
+                        delta = (Cap_1) * (power[r*grid_cols+c] +
+                            (temp[r*grid_cols+c-1] - temp[r*grid_cols+c]) * Rx_1 +
+                            (temp[(r-1)*grid_cols+c] - temp[r*grid_cols+c]) * Ry_1 +
+                        (   amb_temp - temp[r*grid_cols+c]) * Rz_1);
                     }    /* Corner 4    */
                     else if ((r == grid_rows-1) && (c == 0)) {
-                        delta = (Cap_1) * (power[r*col] +
-                            (temp[r*col+1] - temp[r*col]) * Rx_1 +
-                            (temp[(r-1)*col] - temp[r*col]) * Ry_1 +
-                            (amb_temp - temp[r*col]) * Rz_1);
+                        delta = (Cap_1) * (power[r*grid_cols] +
+                            (temp[r*grid_cols+1] - temp[r*grid_cols]) * Rx_1 +
+                            (temp[(r-1)*grid_cols] - temp[r*grid_cols]) * Ry_1 +
+                            (amb_temp - temp[r*grid_cols]) * Rz_1);
                     }    /* Edge 1 */
                     else if (r == 0) {
                         delta = (Cap_1) * (power[c] +
                             (temp[c+1] + temp[c-1] - 2.0*temp[c]) * Rx_1 +
-                            (temp[col+c] - temp[c]) * Ry_1 +
+                            (temp[grid_cols+c] - temp[c]) * Ry_1 +
                             (amb_temp - temp[c]) * Rz_1);
                     }    /* Edge 2 */
-                    else if (c == col-1) {
-                        delta = (Cap_1) * (power[r*col+c] +
-                            (temp[(r+1)*col+c] + temp[(r-1)*col+c] - 2.0*temp[r*col+c]) * Ry_1 +
-                            (temp[r*col+c-1] - temp[r*col+c]) * Rx_1 +
-                            (amb_temp - temp[r*col+c]) * Rz_1);
+                    else if (c == grid_cols-1) {
+                        delta = (Cap_1) * (power[r*grid_cols+c] +
+                            (temp[(r+1)*grid_cols+c] + temp[(r-1)*grid_cols+c] - 2.0*temp[r*grid_cols+c]) * Ry_1 +
+                            (temp[r*grid_cols+c-1] - temp[r*grid_cols+c]) * Rx_1 +
+                            (amb_temp - temp[r*grid_cols+c]) * Rz_1);
                     }    /* Edge 3 */
                     else if (r == grid_rows-1) {
-                        delta = (Cap_1) * (power[r*col+c] +
-                            (temp[r*col+c+1] + temp[r*col+c-1] - 2.0*temp[r*col+c]) * Rx_1 +
-                            (temp[(r-1)*col+c] - temp[r*col+c]) * Ry_1 +
-                            (amb_temp - temp[r*col+c]) * Rz_1);
+                        delta = (Cap_1) * (power[r*grid_cols+c] +
+                            (temp[r*grid_cols+c+1] + temp[r*grid_cols+c-1] - 2.0*temp[r*grid_cols+c]) * Rx_1 +
+                            (temp[(r-1)*grid_cols+c] - temp[r*grid_cols+c]) * Ry_1 +
+                            (amb_temp - temp[r*grid_cols+c]) * Rz_1);
                     }    /* Edge 4 */
                     else if (c == 0) {
-                        delta = (Cap_1) * (power[r*col] +
-                            (temp[(r+1)*col] + temp[(r-1)*col] - 2.0*temp[r*col]) * Ry_1 +
-                            (temp[r*col+1] - temp[r*col]) * Rx_1 +
-                            (amb_temp - temp[r*col]) * Rz_1);
+                        delta = (Cap_1) * (power[r*grid_cols] +
+                            (temp[(r+1)*grid_cols] + temp[(r-1)*grid_cols] - 2.0*temp[r*grid_cols]) * Ry_1 +
+                            (temp[r*grid_cols+1] - temp[r*grid_cols]) * Rx_1 +
+                            (amb_temp - temp[r*grid_cols]) * Rz_1);
                     }
-                    result[r*col+c] =temp[r*col+c]+ delta;
+                    result[r*grid_cols+c] =temp[r*grid_cols+c]+ delta;
                 }
             }
             continue;
@@ -80,11 +82,11 @@ void single_iteration(FLOAT *result, FLOAT *temp, FLOAT *power, int grid_rows, i
         for ( r = r_start; r < r_start + BLOCK_SIZE_R; ++r ) {
             for ( c = c_start; c < c_start + BLOCK_SIZE_C; ++c ) {
             /* Update Temperatures */
-                result[r*col+c] =temp[r*col+c]+
-                     ( Cap_1 * (power[r*col+c] +
-                    (temp[(r+1)*col+c] + temp[(r-1)*col+c] - 2.f*temp[r*col+c]) * Ry_1 +
-                    (temp[r*col+c+1] + temp[r*col+c-1] - 2.f*temp[r*col+c]) * Rx_1 +
-                    (amb_temp - temp[r*col+c]) * Rz_1));
+                result[r*grid_cols+c] =temp[r*grid_cols+c]+
+                     ( Cap_1 * (power[r*grid_cols+c] +
+                    (temp[(r+1)*grid_cols+c] + temp[(r-1)*grid_cols+c] - 2.f*temp[r*grid_cols+c]) * Ry_1 +
+                    (temp[r*grid_cols+c+1] + temp[r*grid_cols+c-1] - 2.f*temp[r*grid_cols+c]) * Rx_1 +
+                    (amb_temp - temp[r*grid_cols+c]) * Rz_1));
             }
         }
     }
@@ -94,10 +96,10 @@ void single_iteration(FLOAT *result, FLOAT *temp, FLOAT *power, int grid_rows, i
  * transfer differential equations to difference equations
  * and solves the difference equations by iterating
  */
-void compute_tran_temp(FLOAT *result, int num_iterations, FLOAT *temp, FLOAT *power, int grid_rows, int col, int total_iterations) {
+void compute_tran_temp(FLOAT *result, int num_iterations, FLOAT *temp, FLOAT *power, int grid_rows, int grid_cols, int total_iterations) {
 
     FLOAT grid_height = chip_height / grid_rows;
-    FLOAT grid_width = chip_width / col;
+    FLOAT grid_width = chip_width / grid_cols;
 
     FLOAT Cap = FACTOR_CHIP * SPEC_HEAT_SI * t_chip * grid_width * grid_height;
     FLOAT Rx = grid_width / (2.0 * K_SI * t_chip * grid_height);
@@ -115,13 +117,13 @@ void compute_tran_temp(FLOAT *result, int num_iterations, FLOAT *temp, FLOAT *po
         fprintf(stdout, "total iterations: %d s\tstep size: %g s\n", total_iterations, step);
         fprintf(stdout, "Rx: %g\tRy: %g\tRz: %g\tCap: %g\n", Rx, Ry, Rz, Cap);
     }
-    #pragma omp target data map(from : result [0:grid_rows * col]) map(to : power [0:grid_rows * col]) map(tofrom : temp [0:grid_rows * col])
+    #pragma omp target data map(from : result [0:grid_rows * grid_cols]) map(to : power [0:grid_rows * grid_cols]) map(tofrom : temp [0:grid_rows * grid_cols])
     {
         FLOAT* r = result;
         FLOAT* t = temp;
         
         for (int i = 0; i < total_iterations ; i++) {
-            single_iteration(r, t, power, grid_rows, col, Cap_1, Rx_1, Ry_1, Rz_1, step);
+            single_iteration(r, t, power, grid_rows, grid_cols, Cap_1, Rx_1, Ry_1, Rz_1, step);
             FLOAT* tmp = t;
             t = r;
             r = tmp;

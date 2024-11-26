@@ -1,3 +1,8 @@
+/*
+ * Level 2: Dynamic Task Scheduling
+ * This version improves upon the basic parallelization by introducing dynamic scheduling to balance the workload among threads. Tasks are assigned dynamically to threads, which is especially beneficial for unevenly distributed datasets where some points may require more computation than others.
+ *
+ */
 #include "kmeans.h"
 
 int cluster(int numObjects, int numAttributes, float **attributes, int nclusters, float threshold, float ***cluster_centres) {

@@ -1,3 +1,8 @@
+/*
+ * Level 1: Basic GPU Offloading
+ * This version utilizes OpenMP target parallel to offload the main computational loops to the GPU. All feature points, membership arrays, and cluster centers are mapped to the device. Each GPU thread computes the distance between a point and all cluster centers to determine the closest cluster. The algorithm performs reduction manually on the host to update cluster centers.
+ *
+ */
 #include "kmeans.h"
 
 int cluster(int numObjects, int numAttributes, float **attributes, int nclusters, float threshold, float ***cluster_centres) {

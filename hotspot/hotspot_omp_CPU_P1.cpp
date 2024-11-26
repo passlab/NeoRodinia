@@ -1,5 +1,6 @@
 /*
- * Serial Version
+ * Level 1: Basic Parallelization
+ * This version introduces parallelism to the serial implementation using #pragma omp parallel for to divide the computational workload among multiple threads. The main loop processing grid blocks is parallelized, and threads execute independently with shared access to the input and output arrays.
  *
  */
 #include "hotspot.h"

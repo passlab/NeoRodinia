@@ -1,5 +1,6 @@
 /*
- * Serial Version
+ * Level 2: Dynamic Scheduling
+ * In this version, dynamic scheduling with a chunk size is introduced to balance the workload better, especially for grids with non-uniform computation times. Threads dynamically pick up chunks of work as they become available, ensuring improved utilization.
  *
  */
 #include "hotspot.h"

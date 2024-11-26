@@ -1,5 +1,9 @@
 /*
- * Serial Version
+ * Level 2: Dynamic Scheduling with schedule(dynamic, 64)
+ * Introduces dynamic scheduling to improve load balancing, especially for non-uniform workloads.
+ * The schedule(dynamic, 64) clause divides the loop into chunks of 64 iterations and dynamically assigns these chunks to threads.
+ * This approach reduces thread idling by allowing threads to pick up new chunks as they complete their current tasks.
+ * Dynamic scheduling is used for all parallelized loops in both Fan1 and Fan2 functions.
  *
  */
 #include "gaussian.h"

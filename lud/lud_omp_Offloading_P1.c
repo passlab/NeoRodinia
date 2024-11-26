@@ -1,7 +1,9 @@
 /*
- * The `omp target parallel for` pragma is used to distribute the iterations of the inner loop across multiple threads.
- * The `map` clauses specify the data mappings for the variables used in the parallel region.
- *
+ * Level 1: Basic GPU Parallelization
+ * Implements basic GPU offloading with #pragma omp target parallel for.
+ * The data is transferred to the GPU using the map clause, which maps the size and the matrix a to the device memory.
+ * The parallel for loop distributes the computations across GPU threads.
+ * Focuses on leveraging GPU parallelism with minimal adjustments from a CPU implementation, making it straightforward to port.
  */
 #include "lud.h"
 #include <omp.h>

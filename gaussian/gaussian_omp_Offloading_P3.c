@@ -1,5 +1,6 @@
 /*
- * Serial Version
+ * Level 3: Fine-Tuned Resource Allocation with num_teams and num_threads
+ * This level introduces explicit control over the number of teams and threads for optimal GPU performance. Parameters such as num_teams and num_threads are used to tailor parallelism to the problem size and GPU architecture.
  *
  */
 #include "gaussian.h"
@@ -15,7 +16,7 @@
 void Fan1(float *m, float *a, int Size, int t)
 {
     int i;
-    #pragma omp target teams distribute parallel for private(i) shared(a,m) num_teams(NUM_TEAMS) num_threads(TEAM_SIZE)
+    #pragma omp target teams distribute parallel for private(i) shared(a,m) num_teams(Size/NUM_TEAMS) num_threads(TEAM_SIZE)
     for (i = 0; i < Size - 1 - t; i++)
         m[Size * (i + t + 1) + t] = a[Size * (i + t + 1) + t] / a[Size * t + t];
 }
@@ -27,12 +28,12 @@ void Fan1(float *m, float *a, int Size, int t)
 void Fan2(float *m, float *a, float *b, int Size, int j1, int t)
 {
     int i, j;
-    #pragma omp target teams distribute parallel for private(i,j) shared(a,m) num_teams(NUM_TEAMS) num_threads(TEAM_SIZE)
+    #pragma omp target teams distribute parallel for private(i,j) shared(a,m) num_teams(Size/NUM_TEAMS) num_threads(TEAM_SIZE)
     for (i = 0; i < Size - 1 - t; i++) {
         for (j = 0; j < Size - t; j++)
             a[Size * (i + 1 + t) + (j + t)] -= m[Size * (i + 1 + t) + t] * a[Size * t + (j + t)];
     }
-    #pragma omp target teams distribute parallel for private(i) shared(b,m) num_teams(NUM_TEAMS) num_threads(TEAM_SIZE)
+    #pragma omp target teams distribute parallel for private(i) shared(b,m) num_teams(Size/NUM_TEAMS) num_threads(TEAM_SIZE)
     for (i = 0; i < Size - 1 - t; i++) {
         b[i + 1 + t] -= m[Size * (i + 1 + t) + t] * b[t];
     }

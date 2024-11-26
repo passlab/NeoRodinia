@@ -1,8 +1,9 @@
 /*
- * Compared with P1, P2 implements the `target teams distribute parallel for` directive.
- * It first distributes the loop iterations among teams of threads, and then each team further distributes the iterations among threads within the team.
- * This directive provides more flexibility in how work is divided among threads, allowing for potentially better load balancing and resource utilization.
- *
+ * Level 2: Teams and Thread Hierarchies
+ * Enhances Level 1 by introducing team-based parallelism with #pragma omp target teams distribute parallel for.
+ * Divides the workload into teams, each consisting of threads, allowing better organization of GPU threads.
+ * The hierarchical structure improves scalability and resource management for larger datasets.
+ * Still uses default team and thread configurations but benefits from better load balancing compared to Level 1.
  */
 #include "lud.h"
 #include <omp.h>

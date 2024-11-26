@@ -1,3 +1,10 @@
+/*
+ * Level 2: SIMD with Memory Alignment
+ * Adds the aligned clause to inform the compiler that pt1 and pt2 are aligned to 32-byte boundaries (suitable for AVX instructions).
+ * Proper memory alignment helps the compiler generate more efficient SIMD instructions, reducing potential penalties from unaligned memory accesses.
+ * Assumes that the data has been properly aligned (e.g., using posix_memalign or compiler-specific alignment directives).
+ *
+ */
 #include "kmeans.h"
 
 int cluster(int numObjects, int numAttributes, float **attributes, int nclusters, float threshold, float ***cluster_centres) {
@@ -35,23 +42,20 @@ int find_nearest_point(float *pt, int nfeatures, float **pts, int npts) {
 
 // multi-dimensional spatial Euclid distance square
 float euclid_dist_2(float *pt1, float *pt2, int numdims) {
-    int i;
-    float ans=0.0;
-    for (i=0; i<numdims; i++)
-        ans += (pt1[i]-pt2[i]) * (pt1[i]-pt2[i]);
-
-    return(ans);
+    float ans = 0.0;
+    #pragma omp simd aligned(pt1, pt2: 32) reduction(+:ans)
+    for (int i = 0; i < numdims; i++) {
+        ans += (pt1[i] - pt2[i]) * (pt1[i] - pt2[i]);
+    }
+    return ans;
 }
 
 float** kmeans_clustering(float** feature, int nfeatures, int npoints, int nclusters, float threshold, int* membership) {
-    int i, j, k, n = 0, index, loop = 0;
-    int* new_centers_len;      /* [nclusters]: no. of points in each cluster */
-    float** new_centers;       /* [nclusters][nfeatures] */
-    float** clusters;          /* out: [nclusters][nfeatures] */
+    int i, j, n = 0, index;
+    int* new_centers_len;   /* [nclusters]: no. of points in each cluster */
     float delta;
-    int nthreads = 128;
-    int** partial_new_centers_len;
-    float*** partial_new_centers;
+    float** clusters;       /* out: [nclusters][nfeatures] */
+    float** new_centers;    /* [nclusters][nfeatures] */
 
     /* allocate space for returning variable clusters[] */
     clusters = (float**)malloc(nclusters * sizeof(float*));
@@ -78,56 +82,36 @@ float** kmeans_clustering(float** feature, int nfeatures, int npoints, int nclus
     for (i = 1; i < nclusters; i++)
         new_centers[i] = new_centers[i - 1] + nfeatures;
 
-    partial_new_centers_len = (int**)malloc(nthreads * sizeof(int*));
-    partial_new_centers_len[0] = (int*)calloc(nthreads * nclusters, sizeof(int));
-    for (i = 1; i < nthreads; i++)
-        partial_new_centers_len[i] = partial_new_centers_len[i - 1] + nclusters;
-
-    partial_new_centers = (float***)malloc(nthreads * sizeof(float**));
-    partial_new_centers[0] = (float**)malloc(nthreads * nclusters * sizeof(float*));
-    for (i = 1; i < nthreads; i++)
-        partial_new_centers[i] = partial_new_centers[i - 1] + nclusters;
-
-    for (i = 0; i < nthreads; i++) {
-        for (j = 0; j < nclusters; j++)
-            partial_new_centers[i][j] = (float*)calloc(nfeatures, sizeof(float));
-    }
-
     do {
         delta = 0.0;
-
-        omp_set_num_threads(nthreads);
-        #pragma omp parallel for private(i,j,index) firstprivate(npoints,nclusters,nfeatures) shared(feature,clusters,membership,partial_new_centers,partial_new_centers_len) schedule(dynamic, 128) reduction(+:delta)
         for (i = 0; i < npoints; i++) {
+            /* find the index of nearest cluster centers */
             index = find_nearest_point(feature[i], nfeatures, clusters, nclusters);
+            /* if membership changes, increase delta by 1 */
             if (membership[i] != index)
                 delta += 1.0;
+
+            /* assign the membership to object i */
             membership[i] = index;
-            partial_new_centers_len[omp_get_thread_num()][index]++;
+
+            /* update new cluster centers: sum of objects located within */
+            new_centers_len[index]++;
             for (j = 0; j < nfeatures; j++)
-                partial_new_centers[omp_get_thread_num()][index][j] += feature[i][j];
+                new_centers[index][j] += feature[i][j];
         }
 
-        for (i = 0; i < nclusters; i++) {
-            for (j = 0; j < nthreads; j++) {
-                new_centers_len[i] += partial_new_centers_len[j][i];
-                partial_new_centers_len[j][i] = 0;
-                for (k = 0; k < nfeatures; k++) {
-                    new_centers[i][k] += partial_new_centers[j][i][k];
-                    partial_new_centers[j][i][k] = 0;
-                }
-            }
-        }
-
+        /* replace old cluster centers with new_centers */
         for (i = 0; i < nclusters; i++) {
             for (j = 0; j < nfeatures; j++) {
                 if (new_centers_len[i] > 0)
                     clusters[i][j] = new_centers[i][j] / new_centers_len[i];
-                new_centers[i][j] = 0.0;
+                new_centers[i][j] = 0.0;   /* set back to 0 */
             }
-            new_centers_len[i] = 0;
+            new_centers_len[i] = 0;   /* set back to 0 */
         }
-    } while (delta > threshold && loop++ < 500);
+
+        //delta /= npoints;
+    } while (delta > threshold);
 
     free(new_centers[0]);
     free(new_centers);

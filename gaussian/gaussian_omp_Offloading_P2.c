@@ -1,5 +1,6 @@
 /*
- * Serial Version
+ * Level 2: Teams and Threads Parallelization with #pragma omp target teams distribute parallel for
+ * This level enhances GPU utilization by organizing threads into teams, distributing work among them, and parallelizing across teams and threads.
  *
  */
 #include "gaussian.h"

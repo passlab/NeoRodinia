@@ -1,5 +1,7 @@
 /*
- * Serial Version
+ * Level 1: Basic GPU Offloading with #pragma omp target parallel for
+ * This version introduces GPU parallelization by offloading computation loops to the GPU using the #pragma omp target parallel for directive.
+ * Workload division is achieved by splitting grid rows and columns into smaller blocks for processing.
  *
  */
 #include "hotspot.h"

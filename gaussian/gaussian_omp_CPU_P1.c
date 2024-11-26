@@ -1,5 +1,9 @@
 /*
- * Serial Version
+ * Level 1: Basic Parallelization Using #pragma omp parallel for
+ * The Fan1 and Fan2 loops are parallelized using the #pragma omp parallel for directive.
+ * Work is distributed among threads using the default static scheduling policy.
+ * This version allows multiple threads to compute parts of the multiplier matrix (Fan1) and update the LUD matrix (Fan2) simultaneously.
+ * Each thread operates independently on its assigned data, with private variables for loop indices (i and j) and shared access to the arrays.
  *
  */
 #include "gaussian.h"

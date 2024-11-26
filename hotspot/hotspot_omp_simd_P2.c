@@ -1,5 +1,6 @@
 /*
- * Serial Version
+ * Level 2: SIMD with Data Alignment and Reductions
+ * This version ensures aligned data for SIMD operations, reducing memory access overhead, and incorporates SIMD-enabled reductions for aggregated computations, like summations or averaging.
  *
  */
 #include "hotspot.h"
@@ -12,7 +13,7 @@ void single_iteration(FLOAT *result, FLOAT *temp, FLOAT *power, int grid_rows, i
     int chunks_in_grid_rows = grid_cols/BLOCK_SIZE_C;
     int chunks_in_grid_cols = grid_rows/BLOCK_SIZE_R;
 
-    #pragma omp target teams distribute parallel for map(tofrom : temp [0:grid_rows * grid_cols])  num_teams(num_chunk/TEAM_SIZE) num_threads(TEAM_SIZE)
+#pragma omp parallel for shared(power, temp, result) private(chunk, r, c, delta) firstprivate(grid_rows, grid_cols, num_chunk, chunks_in_grid_rows)
     for ( chunk = 0; chunk < num_chunk; ++chunk ) {
         int r_start = BLOCK_SIZE_R*(chunk/chunks_in_grid_cols);
         int c_start = BLOCK_SIZE_C*(chunk%chunks_in_grid_rows);
@@ -21,6 +22,7 @@ void single_iteration(FLOAT *result, FLOAT *temp, FLOAT *power, int grid_rows, i
        
         if ( r_start == 0 || c_start == 0 || r_end == grid_rows || c_end == grid_cols ) {
             for ( r = r_start; r < r_start + BLOCK_SIZE_R; ++r ) {
+                #pragma omp simd aligned(temp, power, result : 32)
                 for ( c = c_start; c < c_start + BLOCK_SIZE_C; ++c ) {
                     /* Corner 1 */
                     if ( (r == 0) && (c == 0) ) {
@@ -115,17 +117,13 @@ void compute_tran_temp(FLOAT *result, int num_iterations, FLOAT *temp, FLOAT *po
         fprintf(stdout, "total iterations: %d s\tstep size: %g s\n", total_iterations, step);
         fprintf(stdout, "Rx: %g\tRy: %g\tRz: %g\tCap: %g\n", Rx, Ry, Rz, Cap);
     }
-    #pragma omp target data map(from : result [0:grid_rows * grid_cols]) map(to : power [0:grid_rows * grid_cols]) map(tofrom : temp [0:grid_rows * grid_cols])
-    {
-        FLOAT* r = result;
-        FLOAT* t = temp;
-        
-        for (int i = 0; i < total_iterations ; i++) {
-            single_iteration(r, t, power, grid_rows, grid_cols, Cap_1, Rx_1, Ry_1, Rz_1, step);
-            FLOAT* tmp = t;
-            t = r;
-            r = tmp;
-        }
+    FLOAT* r = result;
+    FLOAT* t = temp;
+    for (int i = 0; i < total_iterations ; i++) {
+        single_iteration(r, t, power, grid_rows, grid_cols, Cap_1, Rx_1, Ry_1, Rz_1, step);
+        FLOAT* tmp = t;
+        t = r;
+        r = tmp;
     }
 }
 

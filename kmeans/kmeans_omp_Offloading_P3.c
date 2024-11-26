@@ -1,3 +1,8 @@
+/*
+ * Level 3: Optimized GPU Workload with Hierarchical Parallelism
+ * This version employs hierarchical parallelism using teams and threads constructs to fully exploit the GPU’s computational resources. Each team of threads processes a subset of points, performs reductions locally, and writes results to shared memory. A final reduction step aggregates results across all teams.
+ *
+ */
 #include "kmeans.h"
 
 int cluster(int numObjects, int numAttributes, float **attributes, int nclusters, float threshold, float ***cluster_centres) {
@@ -166,7 +171,7 @@ float **kmeans_clustering(float **h_feature, int nfeatures, int npoints, int ncl
         do {
             delta = 0.0;
 #pragma omp target teams distribute parallel for map(tofrom : delta) private(i, j, index) \
-                                                 firstprivate(npoints, nclusters, nfeatures) reduction(+ : delta) num_teams(NUM_TEAMS) num_threads(TEAM_SIZE)
+                                                 firstprivate(npoints, nclusters, nfeatures) reduction(+ : delta) num_teams(npoints/TEAM_SIZE) num_threads(TEAM_SIZE)
             for (i = 0; i < npoints; i++) {
                 int tid = i % total_num_threads;
                 /* find the index of nestest cluster centers */

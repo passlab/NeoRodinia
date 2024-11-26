@@ -1,5 +1,6 @@
 /*
- * Serial Version
+ * Version 3: Optimized Parallelism with Nested Loops
+ * The most advanced version employs nested loop parallelism using the collapse(2) directive to parallelize both rows and columns in a single step. This approach increases granularity and workload distribution efficiency.
  *
  */
 #include "hotspot.h"
@@ -76,9 +77,8 @@ void single_iteration(FLOAT *result, FLOAT *temp, FLOAT *power, int grid_rows, i
             }
             continue;
         }
-
+        #pragma omp parallel for collapse(2) schedule(dynamic, 64)
         for ( r = r_start; r < r_start + BLOCK_SIZE_R; ++r ) {
-            #pragma omp simd
             for ( c = c_start; c < c_start + BLOCK_SIZE_C; ++c ) {
             /* Update Temperatures */
                 result[r*grid_cols+c] =temp[r*grid_cols+c]+

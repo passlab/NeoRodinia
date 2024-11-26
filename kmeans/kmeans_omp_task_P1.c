@@ -1,6 +1,6 @@
 /*
- * Level 1: Basic Parallelization
- * This version introduces basic parallelism using #pragma omp parallel for. The nearest cluster center calculation and the updates to cluster membership and cluster centers are parallelized. However, shared memory and reduction mechanisms are employed to manage data consistency during updates.
+ * Level 1: Basic Task Parallelism with #pragma omp taskloop
+ * Introduces task parallelism using #pragma omp taskloop to distribute the workload of finding the nearest cluster and updating cluster centers. Each iteration of the loop is treated as a task.
  *
  */
 #include "kmeans.h"
@@ -82,22 +82,29 @@ float** kmeans_clustering(float** feature, int nfeatures, int npoints, int nclus
 
     do {
         delta = 0.0;
-        #pragma omp parallel for private(i,j,index) firstprivate(npoints,nclusters,nfeatures) shared(feature,clusters,membership) reduction(+:delta)
-        for (i = 0; i < npoints; i++) {
-            /* find the index of nearest cluster centers */
-            index = find_nearest_point(feature[i], nfeatures, clusters, nclusters);
-            /* if membership changes, increase delta by 1 */
-            if (membership[i] != index)
-                delta += 1.0;
+        #pragma omp parallel
+        #pragma omp single
+        {
+            #pragma omp taskloop private(i, j, index) shared(feature, clusters, membership, new_centers_len, new_centers) firstprivate(npoints, nclusters, nfeatures) reduction(+:delta)
+            for (i = 0; i < npoints; i++) {
+                /* find the index of nearest cluster centers */
+                index = find_nearest_point(feature[i], nfeatures, clusters, nclusters);
 
-            /* assign the membership to object i */
-            membership[i] = index;
+                /* if membership changes, increase delta by 1 */
+                if (membership[i] != index)
+                    delta += 1.0;
 
-            /* update new cluster centers: sum of objects located within */
-            new_centers_len[index]++;
-            for (j = 0; j < nfeatures; j++)
-                new_centers[index][j] += feature[i][j];
+                /* assign the membership to object i */
+                membership[i] = index;
+
+                /* update new cluster centers */
+                new_centers_len[index]++;
+                for (j = 0; j < nfeatures; j++) {
+                    new_centers[index][j] += feature[i][j];
+                }
+            }
         }
+    
 
         /* replace old cluster centers with new_centers */
         for (i = 0; i < nclusters; i++) {
